@@ -1,9 +1,250 @@
+/**
+ * What we're building...
+ *
+ * A slideshow that scrolls from top to bottom.
+ * Each side-by-side slide has text content on the left
+ * which scrolls as part of the normal document flow and
+ * a sticky image on the right that animates.
+ *
+ * In the left column, the scroll progress of any text content
+ * still visible within a specified threshold of the viewport
+ * height is tracked for a given slide. This value will be used
+ * used to determine how the slide's image is animated.
+ *
+ * A right column is taken outside the document flow to display
+ * slide images. The desired effect is an image section that:
+ *
+ * 1) starts aligned at the top of the left column
+ * 2) becomes sticky once it has been scrolled into the horizontal
+ * center of the viewport
+ * 3) is released back into flow once the left column scrolls far enough
+ * such that the bottom of the left column aligns with the bottom of the
+ * image section
+ *
+ */
+
+'use client'
+
+import FlowersPic from '@/public/images/flowers.jpg'
+import BikePic from '@/public/images/Bike.jpg'
+import CoffeePic from '@/public/images/coffee.jpg'
+import FerrisWheelPic from '@/public/images/ferris-wheel.jpg'
+import BridgePic from '@/public/images/bridge.jpg'
+import clsx from 'clsx'
+import Image, { StaticImageData } from 'next/image'
+import { FC, Fragment, useRef, useState } from 'react'
+
+interface Slide {
+  id: number
+  title: string
+  content: string
+  image: {
+    src: StaticImageData
+    alt: string
+  }
+  opacity: number
+}
+
+const slidesData = [
+  {
+    id: 0,
+    title: 'Flowers',
+    content:
+      'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.',
+    image: {
+      src: FlowersPic,
+      alt: 'flowers'
+    },
+    opacity: 0
+  },
+  {
+    id: 1,
+    title: 'Bike',
+    content:
+      'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.',
+    image: {
+      src: BikePic,
+      alt: 'bike'
+    },
+    opacity: 0
+  },
+  {
+    id: 2,
+    title: 'Coffee',
+    content:
+      'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.',
+    image: {
+      src: CoffeePic,
+      alt: 'coffee'
+    },
+    opacity: 0
+  },
+  {
+    id: 3,
+    title: 'Ferris Wheel',
+    content:
+      'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.',
+    image: {
+      src: FerrisWheelPic,
+      alt: 'ferris wheel'
+    },
+    opacity: 0
+  },
+  {
+    id: 4,
+    title: 'Bridge',
+    content:
+      'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.',
+    image: {
+      src: BridgePic,
+      alt: 'bridge'
+    },
+    opacity: 0
+  }
+]
+
 export default function Home() {
+  const [slides, setSlides] = useState<Slide[]>(slidesData)
+
+  // We are using a fixed aspect ratio for our image content,
+  // in this case 1:1, using a container with vertical padding of 100%
+  // and using `object-fit: cover` on the image to fill our 1:1 container.
+
   return (
-    <main className='flex min-h-screen'>
-      <div className='z-10 mx-auto flex w-full max-w-5xl flex-col gap-12 p-12 font-mono'>
-        Home
+    <main className='flex min-h-screen flex-col'>
+      <Guides />
+      <ArbitrarySection />
+      <div className='relative'>
+        <div className='absolute inset-0'>
+          {/* TODO: Add dynamic styling/positioning to our sticky image container */}
+          <div className='sticky top-0 flex items-center justify-center'>
+            <div className='container-base w-full'>
+              <div className='grid grid-cols-4 gap-16 md:gap-32'>
+                <div className='col-span-2 col-start-3 flex justify-center'>
+                  {/* TODO: Use framer to manage slide styles and animation */}
+                  <div className='relative w-full pt-[100%]'>
+                    {slides.map((slide) => (
+                      <div
+                        className='absolute inset-0 overflow-hidden'
+                        key={slide.id}
+                      >
+                        <SlideshowImage slide={slide} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className='container-base'>
+          <div className='grid grid-cols-4 gap-16 md:gap-32'>
+            <div className='col-span-2 col-start-1 grid grid-cols-1 gap-y-6'>
+              {slides.map((slide) => (
+                <Fragment key={slide.id}>
+                  <ContentSection slide={slide} />
+                </Fragment>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
+      <ArbitrarySection />
+      <ArbitrarySection />
     </main>
+  )
+}
+
+interface ContentSectionProps {
+  slide: Slide
+}
+
+const ContentSection: FC<ContentSectionProps> = ({ slide }) => {
+  // Setting ref used to track scroll progress of each slide's content section.
+  // We'll use this to determine how the corresponding image animates.
+  const sectionRef = useRef(null)
+
+  // TODO: Add framer and respond to scroll progress via motion value `change` event
+
+  return (
+    <div className='grid grid-cols-1 gap-y-6' ref={sectionRef}>
+      <div className='relative'>
+        <div className='absolute inset-0 flex'>
+          <div className='flex translate-x-[-50%] items-center justify-center gap-[2px]'>
+            <div className='h-full w-[2px] bg-gray-800' />
+          </div>
+        </div>
+        <h2 className='pl-6 text-4xl font-bold md:text-7xl'>{slide.title}</h2>
+      </div>
+      <div className='pl-6 text-2xl font-extralight'>{slide.content}</div>
+    </div>
+  )
+}
+
+const ArbitrarySection: FC = () => {
+  return (
+    <div className='flex h-[500px] w-full items-center justify-center'>
+      <h2 className='text-4xl font-bold md:text-7xl'>Section</h2>
+    </div>
+  )
+}
+
+const SlideshowImage: FC<{ slide: Slide }> = ({ slide }) => {
+  const [isLoaded, setIsLoaded] = useState<boolean>(false)
+
+  return (
+    <Image
+      key={slide.id}
+      className={clsx(
+        isLoaded ? 'blur-none' : 'blur-lg',
+        'z-50 h-full w-full rounded-md object-cover grayscale transition-all duration-200'
+      )}
+      priority={slide.id === 0}
+      width={580}
+      height={580}
+      sizes='(max-width: 767px) 360px, 580px'
+      alt={slide.image.alt}
+      src={slide.image.src}
+      placeholder={'blur'}
+      onLoadingComplete={() => setIsLoaded(true)}
+    />
+  )
+}
+
+// Just some grid lines to illustrate our spacing and alignment
+const Guides: FC = () => {
+  return (
+    <div className='fixed inset-0'>
+      <div className='container-base h-screen'>
+        <div
+          style={{
+            gridAutoFlow: 'column'
+          }}
+          className='grid h-screen grid-flow-row grid-cols-2 md:grid-cols-4'
+        >
+          <div
+            style={{ backgroundSize: '1px 8px' }}
+            className='h-full w-[1px] bg-gradient-to-b from-gray-400/30 via-gray-400/20 to-transparent bg-repeat-y'
+          />
+          <div
+            style={{ backgroundSize: '1px 8px' }}
+            className='h-full w-[1px] bg-gradient-to-b from-gray-400/30 via-gray-400/20 to-transparent bg-repeat-y'
+          />
+          <div
+            style={{ backgroundSize: '1px 8px' }}
+            className='h-full w-[1px] bg-gradient-to-b from-gray-400/30 via-gray-400/20 to-transparent bg-repeat-y'
+          />
+          <div
+            style={{ backgroundSize: '1px 8px' }}
+            className='hidden h-full w-[1px] bg-gradient-to-b from-gray-400/30 via-gray-400/20 to-transparent bg-repeat-y md:block'
+          />
+          <div
+            style={{ backgroundSize: '1px 8px' }}
+            className='hidden h-full w-[1px] bg-gradient-to-b from-gray-400/30 via-gray-400/20 to-transparent bg-repeat-y md:block'
+          />
+        </div>
+      </div>
+    </div>
   )
 }

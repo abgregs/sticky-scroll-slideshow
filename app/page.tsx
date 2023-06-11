@@ -33,7 +33,7 @@ import BridgePic from '@/public/images/bridge.jpg'
 import clsx from 'clsx'
 import Image, { StaticImageData } from 'next/image'
 import { FC, Fragment, useEffect, useRef, useState } from 'react'
-import { useScroll, useMotionValueEvent } from 'framer-motion'
+import { useScroll, useTransform, useMotionValueEvent } from 'framer-motion'
 import useResizeObserver from '@/hooks/useResizeObserver'
 
 interface Slide {
@@ -57,7 +57,7 @@ const slidesData = [
       src: FlowersPic,
       alt: 'flowers'
     },
-    opacity: 0
+    opacity: 1
   },
   {
     id: 1,
@@ -234,10 +234,23 @@ const ContentSection: FC<ContentSectionProps> = ({ slide, onUpdateSlide }) => {
   })
 
   useMotionValueEvent(scrollYProgress, 'change', () => {
-    let currentOpacity = scrollYProgress.get()
-    console.log(
-      `opacity based on scroll for slide ${slide.id}: ${currentOpacity}`
-    )
+    let currentScrollY = scrollYProgress.get()
+    console.log(`scroll progress for slide ${slide.id}: ${currentScrollY}`)
+  })
+
+  let opacity = useTransform(
+    scrollYProgress,
+    [0, 0.2, 0.8, 1],
+    slide.id === 0
+      ? [1, 1, 1, 0]
+      : slide.id === slidesData.length - 1
+      ? [0, 1, 1, 1]
+      : [0, 1, 1, 0]
+  )
+
+  useMotionValueEvent(opacity, 'change', () => {
+    let currentOpacity = opacity.get()
+    console.log(`opacity for slide ${slide.id}: ${currentOpacity}`)
     onUpdateSlide(slide.id, currentOpacity)
   })
 

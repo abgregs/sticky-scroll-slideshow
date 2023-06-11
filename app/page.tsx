@@ -32,8 +32,9 @@ import FerrisWheelPic from '@/public/images/ferris-wheel.jpg'
 import BridgePic from '@/public/images/bridge.jpg'
 import clsx from 'clsx'
 import Image, { StaticImageData } from 'next/image'
-import { FC, Fragment, useRef, useState } from 'react'
+import { FC, Fragment, useEffect, useRef, useState } from 'react'
 import { useScroll, useMotionValueEvent } from 'framer-motion'
+import useResizeObserver from '@/hooks/useResizeObserver'
 
 interface Slide {
   id: number
@@ -106,10 +107,38 @@ const slidesData = [
 
 export default function Home() {
   const [slides, setSlides] = useState<Slide[]>(slidesData)
+  const [imageReady, setImageReady] = useState(false)
 
   // We are using a fixed aspect ratio for our image content,
   // in this case 1:1, using a container with vertical padding of 100%
   // and using `object-fit: cover` on the image to fill our 1:1 container.
+
+  let imageContainerRef = useRef<HTMLDivElement>(null)
+
+  // We can use the width of this element as a proxy for our image height.
+  // We need this value in order to appropriately offset the `top` property
+  // on the `position: sticky` image horizontally center it in the viewport.
+
+  // We created a hook that relies on `resizeObserver` to get this value.
+  let imageHeight = useResizeObserver({
+    ref: imageContainerRef,
+    dimension: 'width'
+  })
+
+  console.log('image height: ', imageHeight)
+  console.log('image ready: ', imageReady)
+
+  // We need an image ready state to ensure our sticky image loads
+  // in the correct place. Since its position will depend on
+  // calculations based on the image height, if those values aren't
+  // available yet the image won't be positioned correctly, so we should wait.
+
+  useEffect(() => {
+    if (imageReady) return
+    if (imageHeight !== null) {
+      setImageReady(true)
+    }
+  }, [imageReady, imageHeight])
 
   const handleUpdateSlide = (id: number, opacity: number) => {
     setSlides((prevSlides) => {
@@ -130,23 +159,31 @@ export default function Home() {
       <ArbitrarySection />
       <div className='relative'>
         <div className='absolute inset-0'>
-          {/* TODO: Add dynamic styling/positioning to our sticky image container */}
-          <div className='sticky top-0 flex items-center justify-center'>
+          <div
+            style={{
+              top: imageHeight ? `calc(50vh - ${imageHeight / 2}px` : 0
+            }}
+            className='sticky flex items-center justify-center'
+          >
             <div className='container-base w-full'>
               <div className='grid grid-cols-4 gap-16 md:gap-32'>
                 <div className='col-span-2 col-start-3 flex justify-center'>
-                  <div className='relative w-full pt-[100%]'>
-                    {slides.map((slide) => (
-                      <div
-                        className='absolute inset-0 overflow-hidden'
-                        key={slide.id}
-                        style={{
-                          opacity: slides[slide.id].opacity
-                        }}
-                      >
-                        <SlideshowImage slide={slide} />
-                      </div>
-                    ))}
+                  <div
+                    ref={imageContainerRef}
+                    className='relative w-full pt-[100%]'
+                  >
+                    {imageReady &&
+                      slides.map((slide) => (
+                        <div
+                          className='absolute inset-0 overflow-hidden'
+                          key={slide.id}
+                          style={{
+                            opacity: slides[slide.id].opacity
+                          }}
+                        >
+                          <SlideshowImage slide={slide} />
+                        </div>
+                      ))}
                   </div>
                 </div>
               </div>

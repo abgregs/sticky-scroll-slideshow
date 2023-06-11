@@ -33,6 +33,7 @@ import BridgePic from '@/public/images/bridge.jpg'
 import clsx from 'clsx'
 import Image, { StaticImageData } from 'next/image'
 import { FC, Fragment, useRef, useState } from 'react'
+import { useScroll, useMotionValueEvent } from 'framer-motion'
 
 interface Slide {
   id: number
@@ -110,6 +111,19 @@ export default function Home() {
   // in this case 1:1, using a container with vertical padding of 100%
   // and using `object-fit: cover` on the image to fill our 1:1 container.
 
+  const handleUpdateSlide = (id: number, opacity: number) => {
+    setSlides((prevSlides) => {
+      return prevSlides.map((slide) => {
+        return slide.id === id
+          ? {
+              ...slide,
+              opacity
+            }
+          : { ...slide }
+      })
+    })
+  }
+
   return (
     <main className='flex min-h-screen flex-col'>
       <Guides />
@@ -121,12 +135,14 @@ export default function Home() {
             <div className='container-base w-full'>
               <div className='grid grid-cols-4 gap-16 md:gap-32'>
                 <div className='col-span-2 col-start-3 flex justify-center'>
-                  {/* TODO: Use framer to manage slide styles and animation */}
                   <div className='relative w-full pt-[100%]'>
                     {slides.map((slide) => (
                       <div
                         className='absolute inset-0 overflow-hidden'
                         key={slide.id}
+                        style={{
+                          opacity: slides[slide.id].opacity
+                        }}
                       >
                         <SlideshowImage slide={slide} />
                       </div>
@@ -143,7 +159,12 @@ export default function Home() {
             <div className='col-span-2 col-start-1 grid grid-cols-1 gap-y-6'>
               {slides.map((slide) => (
                 <Fragment key={slide.id}>
-                  <ContentSection slide={slide} />
+                  <ContentSection
+                    slide={slide}
+                    onUpdateSlide={(id, opacity) =>
+                      handleUpdateSlide(id, opacity)
+                    }
+                  />
                 </Fragment>
               ))}
             </div>
@@ -158,14 +179,30 @@ export default function Home() {
 
 interface ContentSectionProps {
   slide: Slide
+  onUpdateSlide: (id: number, opacity: number) => void
 }
 
-const ContentSection: FC<ContentSectionProps> = ({ slide }) => {
+const ContentSection: FC<ContentSectionProps> = ({ slide, onUpdateSlide }) => {
   // Setting ref used to track scroll progress of each slide's content section.
   // We'll use this to determine how the corresponding image animates.
   const sectionRef = useRef(null)
 
-  // TODO: Add framer and respond to scroll progress via motion value `change` event
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    // The `start` and `end` of scroll for the slide will be when the content section
+    // first touches 52vh (just below center of the viewport) and when it last
+    // crosses 48vh (just above center of viewport). This will give some overlap such that
+    // one slide begins getting tracked just as another slide finishes its progress.
+    offset: ['start 52vh', 'end 48vh']
+  })
+
+  useMotionValueEvent(scrollYProgress, 'change', () => {
+    let currentOpacity = scrollYProgress.get()
+    console.log(
+      `opacity based on scroll for slide ${slide.id}: ${currentOpacity}`
+    )
+    onUpdateSlide(slide.id, currentOpacity)
+  })
 
   return (
     <div className='grid grid-cols-1 gap-y-6' ref={sectionRef}>
@@ -177,7 +214,9 @@ const ContentSection: FC<ContentSectionProps> = ({ slide }) => {
         </div>
         <h2 className='pl-6 text-4xl font-bold md:text-7xl'>{slide.title}</h2>
       </div>
-      <div className='pl-6 text-2xl font-extralight'>{slide.content}</div>
+      <div className='pl-6 text-base font-extralight md:text-2xl'>
+        {slide.content}
+      </div>
     </div>
   )
 }

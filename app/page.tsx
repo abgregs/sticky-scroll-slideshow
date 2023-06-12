@@ -127,6 +127,7 @@ const xOffset = 125
 
 export default function Home() {
   const [slides, setSlides] = useState<Slide[]>(slidesData)
+  const [[slideID, direction], setActiveSlide] = useState([0, 1])
   const [imageReady, setImageReady] = useState(false)
 
   // We are using a fixed aspect ratio for our image content,
@@ -145,15 +146,14 @@ export default function Home() {
     dimension: 'width'
   })
 
-  console.log('image height: ', imageHeight)
-  console.log('image ready: ', imageReady)
-
   // We need an image ready state to ensure our sticky image loads
   // in the correct place. Since its position will depend on
   // calculations based on the image height, if those values aren't
   // available yet the image won't be positioned correctly, so we should wait.
 
   useEffect(() => {
+    console.log('image height: ', imageHeight)
+    console.log('image ready: ', imageReady)
     if (imageReady) return
     if (imageHeight !== null) {
       setImageReady(true)
@@ -178,7 +178,17 @@ export default function Home() {
           : { ...slide }
       })
     })
+
+    // If progress changed for a slide OTHER than the current slide,
+    // AND it has the higher opacity, set it as the active slide.
+    // Set the direction based on the new active slide ID/index.
+    if (id !== slideID && opacity > slides[slideID].opacity) {
+      setActiveSlide([id, id - slideID > 0 ? 1 : -1])
+    }
   }
+
+  console.log(`active slide is: ${slideID}`)
+  console.log(`latest direction change is: ${direction}`)
 
   return (
     <main className='flex min-h-screen flex-col'>
@@ -264,7 +274,6 @@ const ContentSection: FC<ContentSectionProps> = ({ slide, onUpdateSlide }) => {
 
   useMotionValueEvent(scrollYProgress, 'change', () => {
     let currentScrollY = scrollYProgress.get()
-    console.log(`scroll progress for slide ${slide.id}: ${currentScrollY}`)
   })
 
   let opacity = useTransform(

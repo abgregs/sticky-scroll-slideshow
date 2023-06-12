@@ -33,7 +33,12 @@ import BridgePic from '@/public/images/bridge.jpg'
 import clsx from 'clsx'
 import Image, { StaticImageData } from 'next/image'
 import { FC, Fragment, useEffect, useRef, useState } from 'react'
-import { useScroll, useTransform, useMotionValueEvent } from 'framer-motion'
+import {
+  motion,
+  useScroll,
+  useTransform,
+  useMotionValueEvent
+} from 'framer-motion'
 import useResizeObserver from '@/hooks/useResizeObserver'
 
 interface Slide {
@@ -45,6 +50,8 @@ interface Slide {
     alt: string
   }
   opacity: number
+  scale: number
+  x: number
 }
 
 const slidesData = [
@@ -57,7 +64,9 @@ const slidesData = [
       src: FlowersPic,
       alt: 'flowers'
     },
-    opacity: 1
+    opacity: 1,
+    scale: 1,
+    x: 0
   },
   {
     id: 1,
@@ -68,7 +77,9 @@ const slidesData = [
       src: BikePic,
       alt: 'bike'
     },
-    opacity: 0
+    opacity: 0,
+    scale: 0,
+    x: 0
   },
   {
     id: 2,
@@ -79,7 +90,9 @@ const slidesData = [
       src: CoffeePic,
       alt: 'coffee'
     },
-    opacity: 0
+    opacity: 0,
+    scale: 0,
+    x: 0
   },
   {
     id: 3,
@@ -90,7 +103,9 @@ const slidesData = [
       src: FerrisWheelPic,
       alt: 'ferris wheel'
     },
-    opacity: 0
+    opacity: 0,
+    scale: 0,
+    x: 0
   },
   {
     id: 4,
@@ -101,9 +116,14 @@ const slidesData = [
       src: BridgePic,
       alt: 'bridge'
     },
-    opacity: 0
+    opacity: 0,
+    scale: 0,
+    x: 0
   }
 ]
+
+// Used for the distance images should enter and exit from left or right.
+const xOffset = 125
 
 export default function Home() {
   const [slides, setSlides] = useState<Slide[]>(slidesData)
@@ -140,13 +160,20 @@ export default function Home() {
     }
   }, [imageReady, imageHeight])
 
-  const handleUpdateSlide = (id: number, opacity: number) => {
+  const handleUpdateSlide = (
+    id: number,
+    opacity: number,
+    scale: number,
+    x: number
+  ) => {
     setSlides((prevSlides) => {
       return prevSlides.map((slide) => {
         return slide.id === id
           ? {
               ...slide,
-              opacity
+              opacity,
+              scale,
+              x
             }
           : { ...slide }
       })
@@ -174,15 +201,17 @@ export default function Home() {
                   >
                     {imageReady &&
                       slides.map((slide) => (
-                        <div
+                        <motion.div
                           className='absolute inset-0 overflow-hidden'
                           key={slide.id}
                           style={{
-                            opacity: slides[slide.id].opacity
+                            opacity: slides[slide.id].opacity,
+                            scale: slides[slide.id].scale,
+                            x: slides[slide.id].x
                           }}
                         >
                           <SlideshowImage slide={slide} />
-                        </div>
+                        </motion.div>
                       ))}
                   </div>
                 </div>
@@ -198,8 +227,8 @@ export default function Home() {
                 <Fragment key={slide.id}>
                   <ContentSection
                     slide={slide}
-                    onUpdateSlide={(id, opacity) =>
-                      handleUpdateSlide(id, opacity)
+                    onUpdateSlide={(id, opacity, scale, x) =>
+                      handleUpdateSlide(id, opacity, scale, x)
                     }
                   />
                 </Fragment>
@@ -216,7 +245,7 @@ export default function Home() {
 
 interface ContentSectionProps {
   slide: Slide
-  onUpdateSlide: (id: number, opacity: number) => void
+  onUpdateSlide: (id: number, opacity: number, scale: number, x: number) => void
 }
 
 const ContentSection: FC<ContentSectionProps> = ({ slide, onUpdateSlide }) => {
@@ -250,8 +279,24 @@ const ContentSection: FC<ContentSectionProps> = ({ slide, onUpdateSlide }) => {
 
   useMotionValueEvent(opacity, 'change', () => {
     let currentOpacity = opacity.get()
+
+    // Our scale will be a minimum of 0.75 and move toward 1
+    // based on the current opacity times a multiplier.
+    // The smaller the multiplier, the more gradually the image
+    // will scale up or down between these values as we scroll
+    // within the section bounds where the opacity approaches 0
+    // (IOW when we consider a section entering or exiting).
+    let currentScale = Math.min(1, 0.75 + currentOpacity * 0.25)
+    // The first slide doesn't enter but exits to the left.
+    // Subsequent slides enter/exit from right to left if odd
+    // and left to right if even.
+    let currentX =
+      slide.id === 0
+        ? -xOffset + currentOpacity * xOffset
+        : xOffset * (slide.id % 2 === 0 ? -1 : 1) +
+          currentOpacity * xOffset * (slide.id % 2 === 0 ? 1 : -1)
     console.log(`opacity for slide ${slide.id}: ${currentOpacity}`)
-    onUpdateSlide(slide.id, currentOpacity)
+    onUpdateSlide(slide.id, currentOpacity, currentScale, currentX)
   })
 
   return (

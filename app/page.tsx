@@ -157,7 +157,8 @@ const activeNumberVariants = {
 
 export default function Home() {
   const [slides, setSlides] = useState<Slide[]>(slidesData)
-  const [[slideID, direction], setActiveSlide] = useState([0, 1])
+  const [[direction, lastScrollY], setDirection] = useState([1, 0])
+  const [slideID, setActiveSlide] = useState(0)
   const [imageReady, setImageReady] = useState(false)
 
   // We are using a fixed aspect ratio for our image container,
@@ -212,14 +213,21 @@ export default function Home() {
 
     // If progress changed for a slide OTHER than the current slide,
     // AND it has the higher opacity, set it as the active slide.
-    // Set the direction based on the new active slide ID/index.
     if (id !== slideID && opacity > slides[slideID].opacity) {
-      setActiveSlide([id, id - slideID > 0 ? 1 : -1])
+      console.log(`active slide is: ${id}`)
+      setActiveSlide(id)
     }
   }
 
-  console.log(`active slide is: ${slideID}`)
-  console.log(`latest direction change is: ${direction}`)
+  const handleUpdateDirection = (scrollY: number) => {
+    // Check the diff between last scroll Y value to determine direction.
+    // Set current scroll Y as the latest
+    if (scrollY !== lastScrollY) {
+      setDirection([scrollY - lastScrollY > 0 ? 1 : -1, scrollY])
+    }
+  }
+
+  console.log(`direction change is: ${direction}`)
 
   return (
     <main className='flex min-h-screen flex-col'>
@@ -298,6 +306,7 @@ export default function Home() {
                     onUpdateSlide={(id, opacity, scale, x) =>
                       handleUpdateSlide(id, opacity, scale, x)
                     }
+                    onUpdateDirection={() => handleUpdateDirection(scrollY)}
                   />
                 </Fragment>
               ))}
@@ -314,6 +323,7 @@ interface ContentSectionProps {
   slide: Slide
   activeSlideID: number
   onUpdateSlide: (id: number, opacity: number, scale: number, x: number) => void
+  onUpdateDirection: (scrollY: number) => void
 }
 
 // Used for the distance images should enter and exit from left or right.
@@ -322,7 +332,8 @@ const xOffset = 125
 const ContentSection: FC<ContentSectionProps> = ({
   activeSlideID,
   slide,
-  onUpdateSlide
+  onUpdateSlide,
+  onUpdateDirection
 }) => {
   // Setting ref used to track scroll progress of each slide's content section.
   // We'll use this to determine how the corresponding image animates.
@@ -347,9 +358,7 @@ const ContentSection: FC<ContentSectionProps> = ({
       : [0, 1, 1, 0]
   )
 
-  useMotionValueEvent(opacity, 'change', () => {
-    let currentOpacity = opacity.get()
-
+  useMotionValueEvent(opacity, 'change', (currentOpacity) => {
     // Our scale will be a minimum of 0.75 and move toward 1
     // based on the current opacity times a multiplier.
     // The smaller the multiplier, the more gradually the image
@@ -365,8 +374,11 @@ const ContentSection: FC<ContentSectionProps> = ({
         ? -xOffset + currentOpacity * xOffset
         : xOffset * (slide.id % 2 === 0 ? -1 : 1) +
           currentOpacity * xOffset * (slide.id % 2 === 0 ? 1 : -1)
-    console.log(`opacity for slide ${slide.id}: ${currentOpacity}`)
     onUpdateSlide(slide.id, currentOpacity, currentScale, currentX)
+  })
+
+  useMotionValueEvent(scrollYProgress, 'change', (currentY) => {
+    onUpdateDirection(currentY)
   })
 
   return (

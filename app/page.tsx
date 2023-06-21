@@ -122,33 +122,64 @@ const slidesData = [
   }
 ]
 
-// Used for the distance images should enter and exit from left or right.
-const xOffset = 125
+const titleBarTransition = {
+  duration: 0.5,
+  ease: [0.72, 0.32, 0, 1]
+}
+
+const titleBarVariants = {
+  inactive: {
+    opacity: 0.2
+  },
+  active: {
+    opacity: 1
+  }
+}
+
+const activeNumberTransition = {
+  duration: 0.5,
+  ease: [0.72, 0.32, 0, 1]
+}
+
+const heightOffset = 40
+
+const activeNumberVariants = {
+  inactive: (direction: number) => ({
+    opacity: 0,
+    y: direction * heightOffset
+  }),
+  active: {
+    opacity: 1,
+    y: 0,
+    rotate: 0
+  }
+}
 
 export default function Home() {
   const [slides, setSlides] = useState<Slide[]>(slidesData)
   const [[slideID, direction], setActiveSlide] = useState([0, 1])
   const [imageReady, setImageReady] = useState(false)
 
-  // We are using a fixed aspect ratio for our image content,
+  // We are using a fixed aspect ratio for our image container,
   // in this case 1:1, using a container with vertical padding of 100%
   // and using `object-fit: cover` on the image to fill our 1:1 container.
 
-  let imageContainerRef = useRef<HTMLDivElement>(null)
+  let columnRef = useRef<HTMLDivElement>(null)
 
-  // We can use the width of this element as a proxy for our image height.
+  // We can use the width of our column as a proxy for our image height,
+  // since our image will be as wide as a column.
   // We need this value in order to appropriately offset the `top` property
-  // on the `position: sticky` image horizontally center it in the viewport.
+  // on the `position: sticky` section that contains our image.
 
   // We created a hook that relies on `resizeObserver` to get this value.
   let imageHeight = useResizeObserver({
-    ref: imageContainerRef,
+    ref: columnRef,
     dimension: 'width'
   })
 
   // We need an image ready state to ensure our sticky image loads
-  // in the correct place. Since its position will depend on
-  // calculations based on the image height, if those values aren't
+  // in the correct place. Since its position and height will depend on
+  // calculations based on the current container width, if that value isn't
   // available yet the image won't be positioned correctly, so we should wait.
 
   useEffect(() => {
@@ -195,22 +226,46 @@ export default function Home() {
       <Guides />
       <ArbitrarySection />
       <div className='relative'>
-        <div className='absolute inset-0'>
-          <div
-            style={{
-              top: imageHeight ? `calc(50vh - ${imageHeight / 2}px` : 0
-            }}
-            className='sticky flex items-center justify-center'
-          >
-            <div className='container-base w-full'>
-              <div className='grid grid-cols-4 gap-16 md:gap-32'>
-                <div className='col-span-2 col-start-3 flex justify-center'>
-                  <div
-                    ref={imageContainerRef}
-                    className='relative w-full pt-[100%]'
-                  >
-                    {imageReady &&
-                      slides.map((slide) => (
+        {imageReady && (
+          <div className='absolute inset-0'>
+            <div
+              style={{
+                top: imageHeight ? `calc(50vh - ${imageHeight / 2}px` : 0
+              }}
+              className='sticky flex items-center justify-center'
+            >
+              <div className='container-base w-full'>
+                <div className={`grid grid-cols-4 gap-16 md:gap-32`}>
+                  <div className='col-span-2 col-start-3 flex justify-center'>
+                    <div className='relative w-full pt-[100%]'>
+                      {imageReady && (
+                        <div className='absolute -left-12 bottom-0 top-0 flex items-center md:-left-20'>
+                          <div className='flex h-8 w-8 items-center justify-center rounded-md bg-gray-800'>
+                            <div className='flex h-8 w-8 items-center justify-center'>
+                              {slides.map(
+                                (slide) =>
+                                  slide.id === slideID && (
+                                    <Fragment key={slide.id}>
+                                      <motion.div
+                                        key={slide.id}
+                                        initial='inactive'
+                                        custom={direction}
+                                        animate='active'
+                                        variants={activeNumberVariants}
+                                        transition={activeNumberTransition}
+                                        className='text-white'
+                                      >
+                                        {slideID + 1}
+                                      </motion.div>
+                                    </Fragment>
+                                  )
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {slides.map((slide) => (
                         <motion.div
                           className='absolute inset-0 overflow-hidden'
                           key={slide.id}
@@ -223,20 +278,25 @@ export default function Home() {
                           <SlideshowImage slide={slide} />
                         </motion.div>
                       ))}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         <div className='container-base'>
           <div className='grid grid-cols-4 gap-16 md:gap-32'>
-            <div className='col-span-2 col-start-1 grid grid-cols-1 gap-y-6'>
+            <div
+              ref={columnRef}
+              className='col-span-2 col-start-1 grid grid-cols-1 gap-y-6'
+            >
               {slides.map((slide) => (
                 <Fragment key={slide.id}>
                   <ContentSection
                     slide={slide}
+                    activeSlideID={slideID}
                     onUpdateSlide={(id, opacity, scale, x) =>
                       handleUpdateSlide(id, opacity, scale, x)
                     }
@@ -248,17 +308,24 @@ export default function Home() {
         </div>
       </div>
       <ArbitrarySection />
-      <ArbitrarySection />
     </main>
   )
 }
 
 interface ContentSectionProps {
   slide: Slide
+  activeSlideID: number
   onUpdateSlide: (id: number, opacity: number, scale: number, x: number) => void
 }
 
-const ContentSection: FC<ContentSectionProps> = ({ slide, onUpdateSlide }) => {
+// Used for the distance images should enter and exit from left or right.
+const xOffset = 125
+
+const ContentSection: FC<ContentSectionProps> = ({
+  activeSlideID,
+  slide,
+  onUpdateSlide
+}) => {
   // Setting ref used to track scroll progress of each slide's content section.
   // We'll use this to determine how the corresponding image animates.
   const sectionRef = useRef(null)
@@ -270,10 +337,6 @@ const ContentSection: FC<ContentSectionProps> = ({ slide, onUpdateSlide }) => {
     // crosses 48vh (just above center of viewport). This will give some overlap such that
     // one slide begins getting tracked just as another slide finishes its progress.
     offset: ['start 52vh', 'end 48vh']
-  })
-
-  useMotionValueEvent(scrollYProgress, 'change', () => {
-    let currentScrollY = scrollYProgress.get()
   })
 
   let opacity = useTransform(
@@ -313,7 +376,13 @@ const ContentSection: FC<ContentSectionProps> = ({ slide, onUpdateSlide }) => {
       <div className='relative'>
         <div className='absolute inset-0 flex'>
           <div className='flex translate-x-[-50%] items-center justify-center gap-[2px]'>
-            <div className='h-full w-[2px] bg-gray-800' />
+            <motion.div
+              initial='inactive'
+              animate={slide.id === activeSlideID ? 'active' : 'inactive'}
+              variants={titleBarVariants}
+              transition={titleBarTransition}
+              className='h-full w-[2px] bg-gray-800'
+            />
           </div>
         </div>
         <h2 className='pl-6 text-4xl font-bold md:text-7xl'>{slide.title}</h2>

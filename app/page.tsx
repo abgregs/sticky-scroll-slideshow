@@ -238,32 +238,30 @@ export default function Home() {
                 <div className={`grid grid-cols-4 gap-16 md:gap-32`}>
                   <div className='col-span-2 col-start-3 flex justify-center'>
                     <div className='relative w-full pt-[100%]'>
-                      {imageReady && (
-                        <div className='absolute -left-12 bottom-0 top-0 flex items-center md:-left-20'>
-                          <div className='flex h-8 w-8 items-center justify-center rounded-md bg-gray-800'>
-                            <div className='flex h-8 w-8 items-center justify-center'>
-                              {slides.map(
-                                (slide) =>
-                                  slide.id === slideID && (
-                                    <Fragment key={slide.id}>
-                                      <motion.div
-                                        key={slide.id}
-                                        initial='inactive'
-                                        custom={direction}
-                                        animate='active'
-                                        variants={activeNumberVariants}
-                                        transition={activeNumberTransition}
-                                        className='text-white'
-                                      >
-                                        {slideID + 1}
-                                      </motion.div>
-                                    </Fragment>
-                                  )
-                              )}
-                            </div>
+                      <div className='absolute -left-12 bottom-0 top-0 flex items-center md:-left-20'>
+                        <div className='flex h-8 w-8 items-center justify-center rounded-md bg-gray-800'>
+                          <div className='flex h-8 w-8 items-center justify-center'>
+                            {slides.map(
+                              (slide) =>
+                                slide.id === slideID && (
+                                  <Fragment key={slide.id}>
+                                    <motion.div
+                                      key={slide.id}
+                                      initial='inactive'
+                                      custom={direction}
+                                      animate='active'
+                                      variants={activeNumberVariants}
+                                      transition={activeNumberTransition}
+                                      className='text-white'
+                                    >
+                                      {slideID + 1}
+                                    </motion.div>
+                                  </Fragment>
+                                )
+                            )}
                           </div>
                         </div>
-                      )}
+                      </div>
 
                       {slides.map((slide) => (
                         <motion.div

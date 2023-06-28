@@ -72,7 +72,7 @@ const slidesData = [
     id: 1,
     title: 'Bike',
     content:
-      'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.',
+      'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
     image: {
       src: BikePic,
       alt: 'bike'
@@ -122,36 +122,62 @@ const slidesData = [
   }
 ]
 
-const titleBarTransition = {
-  duration: 0.5,
+const colors = ['#6282a6', '#7e6e84', '#72665e', '#b87a5e', '#ebbd74']
+
+const baseTransition = {
+  duration: 0.7,
   ease: [0.72, 0.32, 0, 1]
 }
 
-const titleBarVariants = {
-  inactive: {
-    opacity: 0.2
-  },
-  active: {
-    opacity: 1
-  }
+const activeTitleTransition = baseTransition
+
+const activeTitleContainerTransition = {
+  duration: 1,
+  ease: [0.72, 0.32, 0, 1],
+  staggerChildren: 0.6,
+  delayChildren: 0.1
 }
 
-const activeNumberTransition = {
-  duration: 0.5,
-  ease: [0.72, 0.32, 0, 1]
+const activeTitleVariants = {
+  inactive: ({ id, direction }: { id: number; direction: number }) => ({
+    opacity: 0.2,
+    scale: 0,
+    rotate: 270 * direction,
+    x: 25 * id ** 3 * -1,
+    y: 15 * id ** 3 * direction
+  }),
+  active: ({ id }: { id: number }) => ({
+    opacity: 1 / (2 + id ** 2),
+    scale: 1,
+    rotate: 0,
+    x: 0,
+    y: 0
+  })
 }
+
+const activeNumberBackgroundTransition = baseTransition
+
+const activeNumberBackgroundVariants = {
+  inactive: ({ direction, id }: { direction: number; id: number }) => ({
+    backgroundColor: colors[(id + direction * -1) % 5]
+  }),
+  active: ({ id }: { id: number }) => ({
+    backgroundColor: colors[id % 5]
+  })
+}
+
+const activeNumberTransition = baseTransition
 
 const heightOffset = 40
 
 const activeNumberVariants = {
   inactive: (direction: number) => ({
-    opacity: 0,
+    opacity: 0.2,
     y: direction * heightOffset
   }),
   active: {
-    opacity: 1,
-    y: 0,
-    rotate: 0
+    opacity: 0.9,
+    y: 0
   }
 }
 
@@ -247,28 +273,33 @@ export default function Home() {
                   <div className='col-span-2 col-start-3 flex justify-center'>
                     <div className='relative w-full pt-[100%]'>
                       <div className='absolute -left-12 bottom-0 top-0 flex items-center md:-left-20'>
-                        <div className='flex h-8 w-8 items-center justify-center rounded-md bg-gray-800'>
-                          <div className='flex h-8 w-8 items-center justify-center'>
-                            {slides.map(
-                              (slide) =>
-                                slide.id === slideID && (
-                                  <Fragment key={slide.id}>
-                                    <motion.div
-                                      key={slide.id}
-                                      initial='inactive'
-                                      custom={direction}
-                                      animate='active'
-                                      variants={activeNumberVariants}
-                                      transition={activeNumberTransition}
-                                      className='text-white'
-                                    >
-                                      {slideID + 1}
-                                    </motion.div>
-                                  </Fragment>
-                                )
-                            )}
-                          </div>
-                        </div>
+                        {slides.map(
+                          (slide) =>
+                            slide.id === slideID && (
+                              <motion.div
+                                key={slide.id}
+                                custom={{ direction, id: slide.id }}
+                                initial='inactive'
+                                animate='active'
+                                transition={activeNumberBackgroundTransition}
+                                variants={activeNumberBackgroundVariants}
+                                className='flex h-8 w-8 items-center justify-center rounded-[4px]'
+                              >
+                                <Fragment key={slide.id}>
+                                  <motion.div
+                                    initial='inactive'
+                                    custom={direction}
+                                    animate='active'
+                                    variants={activeNumberVariants}
+                                    transition={activeNumberTransition}
+                                    className='text-white'
+                                  >
+                                    {slideID + 1}
+                                  </motion.div>
+                                </Fragment>
+                              </motion.div>
+                            )
+                        )}
                       </div>
 
                       {slides.map((slide) => (
@@ -303,6 +334,7 @@ export default function Home() {
                   <ContentSection
                     slide={slide}
                     activeSlideID={slideID}
+                    direction={direction}
                     onUpdateSlide={(id, opacity, scale, x) =>
                       handleUpdateSlide(id, opacity, scale, x)
                     }
@@ -322,6 +354,7 @@ export default function Home() {
 interface ContentSectionProps {
   slide: Slide
   activeSlideID: number
+  direction: number
   onUpdateSlide: (id: number, opacity: number, scale: number, x: number) => void
   onUpdateDirection: (scrollY: number) => void
 }
@@ -332,6 +365,7 @@ const xOffset = 125
 const ContentSection: FC<ContentSectionProps> = ({
   activeSlideID,
   slide,
+  direction,
   onUpdateSlide,
   onUpdateDirection
 }) => {
@@ -384,17 +418,44 @@ const ContentSection: FC<ContentSectionProps> = ({
   return (
     <div className='grid grid-cols-1 gap-y-6' ref={sectionRef}>
       <div className='relative'>
-        <div className='absolute inset-0 flex'>
-          <div className='flex translate-x-[-50%] items-center justify-center gap-[2px]'>
-            <motion.div
-              initial='inactive'
-              animate={slide.id === activeSlideID ? 'active' : 'inactive'}
-              variants={titleBarVariants}
-              transition={titleBarTransition}
-              className='h-full w-[2px] bg-gray-800'
-            />
-          </div>
-        </div>
+        <motion.div
+          key={slide.id}
+          transition={activeTitleContainerTransition}
+          initial={'inactive'}
+          animate={slide.id === activeSlideID ? 'active' : 'inactive'}
+          className='absolute inset-0 flex'
+        >
+          <motion.div
+            key={1}
+            style={{ backgroundColor: colors[slide.id % 5] }}
+            className='absolute -left-3 -top-3 h-6 w-6 rounded-[4px]'
+            custom={{ id: 1, direction }}
+            initial='inactive'
+            animate={slide.id === activeSlideID ? 'active' : 'inactive'}
+            variants={activeTitleVariants}
+            transition={activeTitleTransition}
+          />
+          <motion.div
+            key={2}
+            style={{ backgroundColor: colors[slide.id % 5] }}
+            className='absolute -left-4 -top-4 h-6 w-5 rounded-[4px]'
+            custom={{ id: 2, direction }}
+            initial='inactive'
+            animate={slide.id === activeSlideID ? 'active' : 'inactive'}
+            variants={activeTitleVariants}
+            transition={activeTitleTransition}
+          />
+          <motion.div
+            key={3}
+            style={{ backgroundColor: colors[slide.id % 5] }}
+            className='absolute -left-2 -top-1 h-5 w-6 rounded-[4px]'
+            custom={{ id: 3, direction }}
+            initial='inactive'
+            animate={slide.id === activeSlideID ? 'active' : 'inactive'}
+            variants={activeTitleVariants}
+            transition={activeTitleTransition}
+          />
+        </motion.div>
         <h2 className='pl-6 text-4xl font-bold md:text-7xl'>{slide.title}</h2>
       </div>
       <div className='pl-6 text-base font-extralight md:text-2xl'>

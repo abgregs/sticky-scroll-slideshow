@@ -1,40 +1,35 @@
 /**
- * What we're building...
+ * WHAT WE'RE BUILDING
  *
- * A slideshow that scrolls from top to bottom.
- * Each side-by-side slide has text content on the left
- * which scrolls as part of the normal document flow and
- * a sticky image on the right that animates.
+ * This is a demo of a scroll-based animation using a combination of sticky elements as well as elements in the normal doc flow that animate. Scroll progress is used to track the active section to determine the animations. The overall effect is similar to something I've seen popularized from time to time, where once a use begins scrolling some particular content, sticky elements off to one side animate in and out to provide additional context or visual interest.
  *
- * In the left column, the scroll progress of any text content
- * still visible within a specified threshold of the viewport
- * height is tracked for a given slide. This value will be used
- * used to determine how the slide's image is animated.
+ * This demo uses Framer Motion for animations and Next.js for the project setup for demo purposes, but the code (aside from Next's `Image` component and path alias on imports) can be dropped in any React client component as a starting point.
  *
- * A right column is taken outside the document flow to display
- * slide images. The desired effect is an image section that:
- *
- * 1) starts aligned at the top of the left column
- * 2) becomes sticky once it has been scrolled into the horizontal
- * center of the viewport
- * 3) is released back into flow once the left column scrolls far enough
- * such that the bottom of the left column aligns with the bottom of the
- * image section
- *
+ * Feel free to use this as a starting point for your own projects. If you find it useful, throw it a star on GitHub or give me a shout @abgregs on Twitter.
  */
 
 'use client'
 
-import FlowersPic from '@/public/images/flowers.jpg'
-import BikePic from '@/public/images/Bike.jpg'
-import CoffeePic from '@/public/images/coffee.jpg'
-import FerrisWheelPic from '@/public/images/ferris-wheel.jpg'
-import BridgePic from '@/public/images/bridge.jpg'
+import FlowersPic from '#/flowers.jpg'
+import BikePic from '#/bike.jpg'
+import CoffeePic from '#/coffee.jpg'
+import FerrisWheelPic from '#/ferris-wheel.jpg'
+import BridgePic from '#/bridge.jpg'
 import clsx from 'clsx'
 import Image, { StaticImageData } from 'next/image'
-import { FC, Fragment, useEffect, useRef, useState } from 'react'
-import { useScroll, useTransform, useMotionValueEvent } from 'framer-motion'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
+import {
+  motion,
+  useScroll,
+  useMotionValueEvent,
+  AnimatePresence,
+  MotionValue,
+  useTransform
+} from 'framer-motion'
 import useResizeObserver from '@/hooks/useResizeObserver'
+
+const loremSnippet =
+  'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
 
 interface Slide {
   id: number
@@ -45,94 +40,183 @@ interface Slide {
     alt: string
   }
   opacity: number
+  scale: number
+  x: number
 }
 
 const slidesData = [
   {
     id: 0,
     title: 'Flowers',
-    content:
-      'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.',
+    content: loremSnippet,
     image: {
       src: FlowersPic,
       alt: 'flowers'
     },
-    opacity: 1
+    opacity: 1,
+    scale: 1,
+    x: 0
   },
   {
     id: 1,
     title: 'Bike',
-    content:
-      'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.',
+    content: `${loremSnippet} ${loremSnippet}`,
     image: {
       src: BikePic,
       alt: 'bike'
     },
-    opacity: 0
+    opacity: 0,
+    scale: 0,
+    x: 0
   },
   {
     id: 2,
     title: 'Coffee',
-    content:
-      'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.',
+    content: loremSnippet,
     image: {
       src: CoffeePic,
       alt: 'coffee'
     },
-    opacity: 0
+    opacity: 0,
+    scale: 0,
+    x: 0
   },
   {
     id: 3,
     title: 'Ferris Wheel',
-    content:
-      'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.',
+    content: `${loremSnippet} ${loremSnippet}`,
     image: {
       src: FerrisWheelPic,
       alt: 'ferris wheel'
     },
-    opacity: 0
+    opacity: 0,
+    scale: 0,
+    x: 0
   },
   {
     id: 4,
     title: 'Bridge',
-    content:
-      'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.',
+    content: loremSnippet,
     image: {
       src: BridgePic,
       alt: 'bridge'
     },
-    opacity: 0
+    opacity: 0,
+    scale: 0,
+    x: 0
   }
 ]
 
+// Just some reusable classes for container styles.
+const containerClasses = 'mx-auto max-w-6xl px-6 lg:px-8'
+
+const colors = ['#6282a6', '#7e6e84', '#72665e', '#b87a5e', '#ebbd74']
+
+const baseEase = [0.72, 0.32, 0, 1]
+
+const baseTransition = {
+  duration: 0.7,
+  ease: [0.72, 0.32, 0, 1]
+}
+
+const activeTitleTransition = baseTransition
+
+const activeTitleContainerTransition = {
+  duration: 1,
+  ease: baseEase,
+  staggerChildren: 0.6,
+  delayChildren: 0.1
+}
+
+const activeTitleVariants = {
+  inactive: ({ id, direction }: { id: number; direction: number }) => ({
+    opacity: 0,
+    scale: 0,
+    rotate: 270 * direction,
+    x: 25 * id ** 3 * -1,
+    y: 15 * id ** 3 * direction
+  }),
+  active: ({ id }: { id: number }) => ({
+    opacity: 1 / (2 + id ** 2),
+    scale: 1,
+    rotate: 0,
+    x: 0,
+    y: 0
+  })
+}
+
+const activeNumberBackgroundTransition = baseTransition
+
+const activeNumberBackgroundVariants = {
+  inactive: ({ direction, id }: { direction: number; id: number }) => ({
+    backgroundColor: colors[(id + direction * -1) % 5],
+    opacity: 0.2
+  }),
+  active: ({ id }: { id: number }) => ({
+    backgroundColor: colors[id % 5],
+    opacity: 0.7
+  })
+}
+
+const activeNumberTransition = baseTransition
+
+/**
+ * We will animate the slide number for the active slide. This height offset will be used for a counter-like effect as the slide numbers animate out and in from above and below.
+ */
+const heightOffset = 40
+
+const activeNumberVariants = {
+  inactive: (direction: number) => ({
+    opacity: 0,
+    y: direction * heightOffset
+  }),
+  active: {
+    opacity: 0.9,
+    y: 0
+  },
+  exit: (direction: number) => ({
+    opacity: 0,
+    y: direction * heightOffset * -1
+  })
+}
+
 export default function Home() {
   const [slides, setSlides] = useState<Slide[]>(slidesData)
+  const [[direction, lastScrollY], setDirection] = useState([1, 0])
+  const [activeSlideID, setActiveSlide] = useState(0)
   const [imageReady, setImageReady] = useState(false)
 
-  // We are using a fixed aspect ratio for our image content,
-  // in this case 1:1, using a container with vertical padding of 100%
-  // and using `object-fit: cover` on the image to fill our 1:1 container.
+  /**
+   * We are using a fixed aspect ratio for our image container, in this case 1:1, using a container with vertical padding of 100% and using `object-fit: cover` on the image to fill our 1:1 container.
+   */
+  const columnRef = useRef<HTMLDivElement>(null)
 
-  let imageContainerRef = useRef<HTMLDivElement>(null)
+  // Track scroll to determine direction and currently active slide.
+  const { scrollYProgress } = useScroll({})
 
-  // We can use the width of this element as a proxy for our image height.
-  // We need this value in order to appropriately offset the `top` property
-  // on the `position: sticky` image horizontally center it in the viewport.
+  useMotionValueEvent(scrollYProgress, 'change', (currentScrollY) => {
+    // Check the diff between last scroll Y value to determine direction.
+    // Set current scroll Y and direction.
+    if (currentScrollY !== lastScrollY) {
+      setDirection([currentScrollY - lastScrollY > 0 ? 1 : -1, currentScrollY])
+    }
+  })
 
-  // We created a hook that relies on `resizeObserver` to get this value.
-  let imageHeight = useResizeObserver({
-    ref: imageContainerRef,
+  /**
+   * We can use the width of our column as a proxy for our image height (and width since our images will be 1:1), since we want our image to fill the width of the column. We need this value in order to appropriately offset the `top` property on the `position: sticky section that contains our image.
+   *
+   * We created a hook that relies on `ResizeObserver` to get this value.
+   *
+   * NOTE: This was some code I had lying around from quite some time ago, and it does the trick, but you could use `use-hooks-ts` or similar libraries too for convenience (https://usehooks-ts.com/).
+   */
+  const imageHeight = useResizeObserver({
+    ref: columnRef,
     dimension: 'width'
   })
 
-  console.log('image height: ', imageHeight)
-  console.log('image ready: ', imageReady)
-
-  // We need an image ready state to ensure our sticky image loads
-  // in the correct place. Since its position will depend on
-  // calculations based on the image height, if those values aren't
-  // available yet the image won't be positioned correctly, so we should wait.
-
+  /**
+   * We need an image ready state to ensure our sticky image loads in the correct place. Since its position and height will depend on calculations based on the current container width, if that value isn't available yet the image won't be positioned correctly, so we should wait.
+   */
   useEffect(() => {
     if (imageReady) return
     if (imageHeight !== null) {
@@ -140,146 +224,81 @@ export default function Home() {
     }
   }, [imageReady, imageHeight])
 
-  const handleUpdateSlide = (id: number, opacity: number) => {
-    setSlides((prevSlides) => {
-      return prevSlides.map((slide) => {
-        return slide.id === id
-          ? {
-              ...slide,
-              opacity
-            }
-          : { ...slide }
+  const makeActiveSlide = useCallback((id: number) => setActiveSlide(id), [])
+
+  // When scroll changes, we'll update the slide's opacity, scale, and x position.
+  const handleUpdateSlide = useCallback(
+    ({
+      id,
+      opacity,
+      scale,
+      x
+    }: Pick<Slide, 'id' | 'opacity' | 'scale' | 'x'>) => {
+      setSlides((prevSlides: any) => {
+        return prevSlides.map((slide: any) => {
+          return slide.id === id
+            ? {
+                ...slide,
+                opacity,
+                scale,
+                x
+              }
+            : { ...slide }
+        })
       })
-    })
-  }
+    },
+    []
+  )
 
   return (
     <main className='flex min-h-screen flex-col'>
       <Guides />
       <ArbitrarySection />
       <div className='relative'>
-        <div className='absolute inset-0'>
-          <div
-            style={{
-              top: imageHeight ? `calc(50vh - ${imageHeight / 2}px` : 0
-            }}
-            className='sticky flex items-center justify-center'
-          >
-            <div className='container-base w-full'>
-              <div className='grid grid-cols-4 gap-16 md:gap-32'>
-                <div className='col-span-2 col-start-3 flex justify-center'>
-                  <div
-                    ref={imageContainerRef}
-                    className='relative w-full pt-[100%]'
-                  >
-                    {imageReady &&
-                      slides.map((slide) => (
-                        <div
-                          className='absolute inset-0 overflow-hidden'
-                          key={slide.id}
-                          style={{
-                            opacity: slides[slide.id].opacity
-                          }}
-                        >
-                          <SlideshowImage slide={slide} />
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        {imageReady && imageHeight && (
+          <SlideViewer
+            imageHeight={imageHeight}
+            slides={slides}
+            activeSlideID={activeSlideID}
+            direction={direction}
+          />
+        )}
 
-        <div className='container-base'>
-          <div className='grid grid-cols-4 gap-16 md:gap-32'>
-            <div className='col-span-2 col-start-1 grid grid-cols-1 gap-y-6'>
-              {slides.map((slide) => (
-                <Fragment key={slide.id}>
-                  <ContentSection
-                    slide={slide}
-                    onUpdateSlide={(id, opacity) =>
-                      handleUpdateSlide(id, opacity)
-                    }
-                  />
-                </Fragment>
-              ))}
+        <div className={containerClasses}>
+          <div className='relative grid grid-cols-4 gap-16 md:gap-32'>
+            <div
+              ref={columnRef}
+              className='col-span-2 col-start-1 grid grid-cols-1 gap-y-6'
+            >
+              {imageReady &&
+                slides.map((slide) => (
+                  <Fragment key={slide.id}>
+                    <ContentSection
+                      imageHeight={imageHeight}
+                      pageScrollYProgress={scrollYProgress}
+                      makeActiveSlide={makeActiveSlide}
+                      slides={slides}
+                      activeSlideID={activeSlideID}
+                      slide={slide}
+                      direction={direction}
+                      onUpdateSlide={handleUpdateSlide}
+                    />
+                  </Fragment>
+                ))}
             </div>
           </div>
         </div>
       </div>
-      <ArbitrarySection />
       <ArbitrarySection />
     </main>
   )
 }
 
-interface ContentSectionProps {
+interface SlideImageProps {
   slide: Slide
-  onUpdateSlide: (id: number, opacity: number) => void
 }
 
-const ContentSection: FC<ContentSectionProps> = ({ slide, onUpdateSlide }) => {
-  // Setting ref used to track scroll progress of each slide's content section.
-  // We'll use this to determine how the corresponding image animates.
-  const sectionRef = useRef(null)
-
-  const { scrollYProgress } = useScroll({
-    target: sectionRef,
-    // The `start` and `end` of scroll for the slide will be when the content section
-    // first touches 52vh (just below center of the viewport) and when it last
-    // crosses 48vh (just above center of viewport). This will give some overlap such that
-    // one slide begins getting tracked just as another slide finishes its progress.
-    offset: ['start 52vh', 'end 48vh']
-  })
-
-  useMotionValueEvent(scrollYProgress, 'change', () => {
-    let currentScrollY = scrollYProgress.get()
-    console.log(`scroll progress for slide ${slide.id}: ${currentScrollY}`)
-  })
-
-  let opacity = useTransform(
-    scrollYProgress,
-    [0, 0.2, 0.8, 1],
-    slide.id === 0
-      ? [1, 1, 1, 0]
-      : slide.id === slidesData.length - 1
-      ? [0, 1, 1, 1]
-      : [0, 1, 1, 0]
-  )
-
-  useMotionValueEvent(opacity, 'change', () => {
-    let currentOpacity = opacity.get()
-    console.log(`opacity for slide ${slide.id}: ${currentOpacity}`)
-    onUpdateSlide(slide.id, currentOpacity)
-  })
-
-  return (
-    <div className='grid grid-cols-1 gap-y-6' ref={sectionRef}>
-      <div className='relative'>
-        <div className='absolute inset-0 flex'>
-          <div className='flex translate-x-[-50%] items-center justify-center gap-[2px]'>
-            <div className='h-full w-[2px] bg-gray-800' />
-          </div>
-        </div>
-        <h2 className='pl-6 text-4xl font-bold md:text-7xl'>{slide.title}</h2>
-      </div>
-      <div className='pl-6 text-base font-extralight md:text-2xl'>
-        {slide.content}
-      </div>
-    </div>
-  )
-}
-
-const ArbitrarySection: FC = () => {
-  return (
-    <div className='flex h-[500px] w-full items-center justify-center'>
-      <h2 className='text-4xl font-bold md:text-7xl'>Section</h2>
-    </div>
-  )
-}
-
-const SlideshowImage: FC<{ slide: Slide }> = ({ slide }) => {
+const SlideImage = ({ slide }: SlideImageProps) => {
   const [isLoaded, setIsLoaded] = useState<boolean>(false)
 
   return (
@@ -287,7 +306,7 @@ const SlideshowImage: FC<{ slide: Slide }> = ({ slide }) => {
       key={slide.id}
       className={clsx(
         isLoaded ? 'blur-none' : 'blur-lg',
-        'z-50 h-full w-full rounded-md object-cover grayscale transition-all duration-200'
+        'z-50 h-full w-full rounded-md object-cover grayscale-[50%] transition-all duration-200'
       )}
       priority={slide.id === 0}
       width={580}
@@ -301,11 +320,292 @@ const SlideshowImage: FC<{ slide: Slide }> = ({ slide }) => {
   )
 }
 
-// Just some grid lines to illustrate our spacing and alignment
-const Guides: FC = () => {
+interface SlideViewerProps {
+  imageHeight: number
+  direction: number
+  activeSlideID: number
+  slides: Slide[]
+}
+
+const SlideViewer = ({
+  imageHeight,
+  direction,
+  activeSlideID,
+  slides
+}: SlideViewerProps) => {
+  const imageOffset = (imageHeight / 2).toFixed(0)
+
+  return (
+    <div className='absolute inset-0'>
+      <div
+        style={{
+          top: imageHeight ? `calc(50vh - ${imageOffset}px)` : 0
+        }}
+        className='sticky flex items-center justify-center'
+      >
+        <div className={clsx(containerClasses, 'w-full')}>
+          <div className='grid grid-cols-4 gap-16 md:gap-32'>
+            <div className='col-span-2 col-start-3 flex justify-center'>
+              <div className='relative w-full pt-[100%]'>
+                {slides.map((slide) => (
+                  <motion.div
+                    key={slide.id}
+                    className={clsx(
+                      'absolute inset-0 origin-center overflow-hidden rounded-md'
+                    )}
+                    style={{
+                      opacity: slide.opacity,
+                      x: slide.x,
+                      scale: slide.scale
+                    }}
+                  >
+                    <SlideImage slide={slide} />
+                  </motion.div>
+                ))}
+
+                <div className='absolute -left-12 bottom-0 top-0 flex items-center md:-left-20'>
+                  <motion.div
+                    custom={{
+                      direction,
+                      id: activeSlideID
+                    }}
+                    initial='inactive'
+                    animate='active'
+                    transition={activeNumberBackgroundTransition}
+                    variants={activeNumberBackgroundVariants}
+                    className='relative h-8 w-8 overflow-hidden rounded-[4px]'
+                  >
+                    <div className='absolute inset-0 flex items-center justify-center'>
+                      {slides.map((slide) => (
+                        <AnimatePresence key={slide.id}>
+                          {slide.id === activeSlideID && (
+                            <motion.div
+                              custom={direction}
+                              initial='inactive'
+                              animate='active'
+                              exit='exit'
+                              variants={activeNumberVariants}
+                              transition={activeNumberTransition}
+                              className='absolute text-white'
+                            >
+                              {activeSlideID + 1}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      ))}
+                    </div>
+                  </motion.div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// the distance images should enter and exit from left or right.
+const xOffset = 80
+// how long our animation lasts in pixels scrolled
+const animateHeight = 150
+// how many pixels beyond the section top and bottom our animation is offset
+const animatePositionOffset = 50
+// where relative to the viewport our animation is triggered
+const animateScrollOffset = '50vh'
+
+interface ContentSectionProps {
+  imageHeight: number | null
+  pageScrollYProgress: MotionValue
+  makeActiveSlide: (id: number) => void
+  slides: Slide[]
+  slide: Slide
+  activeSlideID: number
+  direction: number
+  onUpdateSlide: ({
+    id,
+    opacity,
+    scale,
+    x
+  }: Pick<Slide, 'id' | 'opacity' | 'scale' | 'x'>) => void
+}
+
+const ContentSection = ({
+  imageHeight,
+  pageScrollYProgress,
+  makeActiveSlide,
+  slides,
+  activeSlideID,
+  slide,
+  direction,
+  onUpdateSlide
+}: ContentSectionProps) => {
+  /**
+   * Setting refs used to track the top and bottom of the content section. These will be absolute positioned elements assigned a fixed heighy so that animating in and out is consistent from section to section.
+   */
+  const topRef = useRef(null)
+  const bottomRef = useRef(null)
+
+  const { scrollYProgress: topYProgress } = useScroll({
+    target: topRef,
+    offset: [`start ${animateScrollOffset}`, `end ${animateScrollOffset}`]
+  })
+
+  const { scrollYProgress: bottomYProgress } = useScroll({
+    target: bottomRef,
+    offset: [`start ${animateScrollOffset}`, `end ${animateScrollOffset}`]
+  })
+
+  /**
+   * We create an opacity based on the scroll progress of the top and bottom of the section. The very first and very last slide will stay visible on enter and exit, respectively, otherwise top animates in on enter and bottom animates out on exit.
+   */
+  const topOpacity = useTransform(
+    topYProgress,
+    [0, 1],
+    slide.id === 0 ? [1, 1] : [0, 1]
+  )
+  const bottomOpacity = useTransform(
+    bottomYProgress,
+    [0, 1],
+    slide.id === slides.length - 1 ? [1, 1] : [1, 0]
+  )
+  const opacity = useTransform(() =>
+    Math.min(topOpacity.get(), bottomOpacity.get())
+  )
+
+  /**
+   * Our scale will be a minimum of 0.75 and move toward 1 based on the current opacity. We use the formula below to determine how rapidly scale accelerates between the bounds of 0.75 and 1. Adjust the values below or expiriment to create your own effect.
+   */
+  const scale = useTransform(() =>
+    Math.min(1, 0.75 + opacity.get() ** 2 * 0.25)
+  )
+
+  /**
+   * Slides enter/exit from left to right if even and right to left if odd. Note we also account for offsetting any change in scale of the image (if applicable) so the image transitions correctly between our `xOffset` distance and center.
+   */
+  const x = useTransform(
+    () =>
+      // start the slide `xOffset` distance off center
+      xOffset * (slide.id % 2 === 0 ? -1 : 1) +
+      // come to center as opacity approaches 1
+      opacity.get() * xOffset * (slide.id % 2 === 0 ? 1 : -1) +
+      // offset for any change in scale
+      (1 - scale.get()) *
+        0.5 *
+        (imageHeight ?? 0) *
+        (slide.id % 2 === 0 ? -1 : 1)
+  )
+
+  const updateSlide = useCallback(
+    (slide: Slide) => {
+      onUpdateSlide({
+        id: slide.id,
+        opacity: opacity.get(),
+        scale: scale.get(),
+        x: x.get()
+      })
+
+      if (
+        slide.id !== activeSlideID &&
+        opacity.get() > slides[activeSlideID].opacity
+      ) {
+        makeActiveSlide(slide.id)
+      }
+    },
+    [onUpdateSlide, makeActiveSlide, opacity, scale, x, slides, activeSlideID]
+  )
+
+  /**
+   * On any scroll, ensure each slide's values and therefore styles are updated appropriately and so that we can determine which slide is active.
+   */
+  useMotionValueEvent(pageScrollYProgress, 'change', () => {
+    updateSlide(slide)
+  })
+
+  const isActive = slide.id === activeSlideID
+
+  return (
+    <div className='relative grid grid-cols-1 gap-y-6'>
+      <div
+        className='absolute'
+        style={{
+          height: animateHeight,
+          top: 0,
+          marginTop: `-${animatePositionOffset}px`
+        }}
+        ref={topRef}
+      />
+      <div
+        className='absolute'
+        style={{
+          height: animateHeight,
+          bottom: 0,
+          marginBottom: `-${animatePositionOffset}px`
+        }}
+        ref={bottomRef}
+      />
+      <div className='relative'>
+        <motion.div
+          key={slide.id}
+          transition={activeTitleContainerTransition}
+          initial={'inactive'}
+          animate={isActive ? 'active' : 'inactive'}
+          className='absolute inset-0 flex'
+        >
+          <motion.div
+            key={1}
+            style={{ backgroundColor: colors[slide.id % 5] }}
+            className='absolute -left-3 -top-3 h-6 w-6 rounded-[4px]'
+            custom={{ id: 1, direction }}
+            initial='inactive'
+            animate={isActive ? 'active' : 'inactive'}
+            variants={activeTitleVariants}
+            transition={activeTitleTransition}
+          />
+          <motion.div
+            key={2}
+            style={{ backgroundColor: colors[slide.id % 5] }}
+            className='absolute -left-4 -top-4 h-6 w-5 rounded-[4px]'
+            custom={{ id: 2, direction }}
+            initial='inactive'
+            animate={isActive ? 'active' : 'inactive'}
+            variants={activeTitleVariants}
+            transition={activeTitleTransition}
+          />
+          <motion.div
+            key={3}
+            style={{ backgroundColor: colors[slide.id % 5] }}
+            className='absolute -left-2 -top-1 h-5 w-6 rounded-[4px]'
+            custom={{ id: 3, direction }}
+            initial='inactive'
+            animate={isActive ? 'active' : 'inactive'}
+            variants={activeTitleVariants}
+            transition={activeTitleTransition}
+          />
+        </motion.div>
+        <h2 className='pl-6 text-4xl font-bold md:text-7xl'>{slide.title}</h2>
+      </div>
+      <div className='pl-6 text-base font-extralight md:text-2xl'>
+        {slide.content}
+      </div>
+    </div>
+  )
+}
+
+// Just used to simulate how the sticky elements behave on a real page transitioning to and from other content.
+const ArbitrarySection = () => {
+  return (
+    <div className='flex h-[300px] w-full items-center justify-center sm:h-[500px]'>
+      <h2 className='text-4xl font-bold md:text-7xl'>Section</h2>
+    </div>
+  )
+}
+
+// Just some grid lines to illustrate our spacing and alignment.
+const Guides = () => {
   return (
     <div className='fixed inset-0'>
-      <div className='container-base h-screen'>
+      <div className={clsx(containerClasses, 'h-screen')}>
         <div
           style={{
             gridAutoFlow: 'column'

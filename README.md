@@ -1,6 +1,18 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Sticky Scroll Slideshow Demo
+
+This is a demo of a scroll-based animation using a combination of sticky elements as well as elements in the normal doc flow that animate. Scroll progress is used to track the active section to determine the animations. The overall effect is similar to something I've seen popularized from time to time, where once a use begins scrolling some particular content, sticky elements off to one side animate in and out to provide additional context or visual interest.
+
+This demo uses Framer Motion for animations and Next.js for the project setup for demo purposes, but the code (aside from Next's `Image` component and path alias on imports) can be dropped in any React client component as a starting point.
+
+If you find it useful, throw it a star or give me a shout [@abgregs](https://twitter.com/abgregs) on Twitter.
+
+## Demo
+
+[https://sticky-scroll-slideshow.vercel.app/](https://sticky-scroll-slideshow.vercel.app/)
 
 ## Getting Started
+
+This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
 First, run the development server:
 
